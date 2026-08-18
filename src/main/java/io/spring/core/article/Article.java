@@ -3,8 +3,13 @@ package io.spring.core.article;
 import static java.util.stream.Collectors.toList;
 
 import io.spring.Util;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.text.Normalizer;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -65,6 +70,29 @@ public class Article {
   }
 
   public static String toSlug(String title) {
-    return title.toLowerCase().replaceAll("[\\&|[\\uFE30-\\uFFA0]|\\’|\\”|\\s\\?\\,\\.]+", "-");
+    String slug =
+        Normalizer.normalize(title, Normalizer.Form.NFD)
+            .replaceAll("\\p{M}", "")
+            .toLowerCase(Locale.ROOT)
+            .replaceAll("[^a-z0-9]+", "-")
+            .replaceAll("^-+|-+$", "");
+    return slug.isEmpty() ? hashSlug(title) : slug;
+  }
+
+  private static String hashSlug(String title) {
+    try {
+      byte[] digest =
+          MessageDigest.getInstance("SHA-256")
+              .digest(
+                  Normalizer.normalize(title, Normalizer.Form.NFC)
+                      .getBytes(StandardCharsets.UTF_8));
+      StringBuilder sb = new StringBuilder();
+      for (int i = 0; i < 6; i++) {
+        sb.append(String.format("%02x", digest[i]));
+      }
+      return sb.toString();
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
   }
 }
